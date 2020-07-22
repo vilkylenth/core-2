@@ -77,17 +77,10 @@ bool Map::ScriptCommand_Emote(ScriptInfo const& script, WorldObject* source, Wor
         return ShouldAbortScript(script);
     }
 
-    // find the emote
-    std::vector<uint32> emotes;
-    emotes.push_back(script.emote.emoteId);
-    for (uint32 emoteId : script.emote.randomEmotes)
-    {
-        if (!emoteId)
-            continue;
-        emotes.push_back(uint32(emoteId));
-    }
+    uint32 emoteCount = 1;
+    for (; emoteCount < MAX_EMOTE_ID && script.emote.emoteId[emoteCount]; ++emoteCount);
 
-    pSource->HandleEmote(emotes[urand(0, emotes.size() - 1)]);
+    pSource->HandleEmote(script.emote.emoteId[urand(0, emoteCount-1)]);
 
     return false;
 }
@@ -2258,6 +2251,45 @@ bool Map::ScriptCommand_LoadGameObject(ScriptInfo const& script, WorldObject* so
         delete pGameobject;
     else
         Add(pGameobject);
+
+    return false;
+}
+
+// SCRIPT_COMMAND_QUEST_CREDIT (83)
+bool Map::ScriptCommand_QuestCredit(ScriptInfo const& script, WorldObject* source, WorldObject* target)
+{
+    Player* pPlayer;
+
+    if (!((pPlayer = ToPlayer(target)) || (pPlayer = ToPlayer(source))))
+    {
+        sLog.outError("SCRIPT_COMMAND_QUEST_CREDIT (script id %u) call for a nullptr player, skipping.", script.id);
+        return ShouldAbortScript(script);
+    }
+
+    WorldObject* pWorldObject = source && !source->IsPlayer() ? source : (target && !target->IsPlayer() ? target : nullptr);
+    if (!pWorldObject)
+    {
+        sLog.outError("SCRIPT_COMMAND_QUEST_CREDIT (script id %u) call for a nullptr target, skipping.", script.id);
+        return ShouldAbortScript(script);
+    }
+
+    pPlayer->TalkedToCreature(pWorldObject->GetEntry(), pWorldObject->GetObjectGuid());
+
+    return false;
+}
+
+// SCRIPT_COMMAND_SET_GOSSIP_MENU (84)
+bool Map::ScriptCommand_SetGossipMenu(ScriptInfo const& script, WorldObject* source, WorldObject* target)
+{
+    Creature* pSource = ToCreature(source);
+
+    if (!pSource)
+    {
+        sLog.outError("SCRIPT_COMMAND_SET_GOSSIP_MENU (script id %u) call for a nullptr or non-creature source (TypeId: %u), skipping.", script.id, source ? source->GetTypeId() : 0);
+        return ShouldAbortScript(script);
+    }
+
+    pSource->SetDefaultGossipMenuId(script.setGossipMenu.gossipMenuId);
 
     return false;
 }

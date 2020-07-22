@@ -326,7 +326,7 @@ struct GossipMenuItems
     uint32          id;
     uint8           option_icon;
     std::string     option_text;
-    uint32          OptionBroadcastTextID;
+    uint32          option_broadcast_text;
     uint32          option_id;
     uint32          npc_option_npcflag;
     int32           action_menu_id;
@@ -334,8 +334,8 @@ struct GossipMenuItems
     uint32          action_script_id;
     bool            box_coded;
     std::string     box_text;
-    uint32          BoxBroadcastTextID;
-    uint16          conditionId;
+    uint32          box_broadcast_text;
+    uint16          condition_id;
 };
 
 struct GossipMenus
@@ -400,7 +400,7 @@ SkillRangeType GetSkillRangeType(SkillLineEntry const* pSkill, bool racial);
 
 bool normalizePlayerName(std::string& name, size_t max_len = MAX_INTERNAL_PLAYER_NAME);
 
-struct MANGOS_DLL_SPEC LanguageDesc
+struct LanguageDesc
 {
     Language lang_id;
     uint32   spell_id;
@@ -408,7 +408,7 @@ struct MANGOS_DLL_SPEC LanguageDesc
 };
 
 extern LanguageDesc lang_description[LANGUAGES_COUNT];
-MANGOS_DLL_SPEC LanguageDesc const* GetLanguageDescByID(uint32 lang);
+LanguageDesc const* GetLanguageDescByID(uint32 lang);
 
 class PlayerDumpReader;
 
@@ -602,6 +602,7 @@ class ObjectMgr
         bool IsExistingAreaTriggerId(uint32 id) const { return (m_AreaTriggerIdSet.find(id) != m_AreaTriggerIdSet.end()); }
         bool IsExistingCreatureSpellsId(uint32 id) const { return (m_CreatureSpellsIdSet.find(id) != m_CreatureSpellsIdSet.end()); }
         bool IsExistingVendorTemplateId(uint32 id) const { return (m_VendorTemplateIdSet.find(id) != m_VendorTemplateIdSet.end()); }
+        bool IsExistingGossipMenuId(uint32 id) const { return (m_GossipMenuIdSet.find(id) != m_GossipMenuIdSet.end()); }
 
         typedef std::unordered_map<uint32, Item*> ItemMap;
 
@@ -1486,6 +1487,7 @@ class ObjectMgr
         std::set<uint32> m_AreaTriggerIdSet;
         std::set<uint32> m_CreatureSpellsIdSet;
         std::set<uint32> m_VendorTemplateIdSet;
+        std::set<uint32> m_GossipMenuIdSet;
 
         typedef std::map<uint32,PetLevelInfo*> PetLevelInfoMap;
         // PetLevelInfoMap[creature_id][level]
@@ -1548,10 +1550,5 @@ class ObjectMgr
 };
 
 #define sObjectMgr MaNGOS::Singleton<ObjectMgr>::Instance()
-
-// scripting access functions
-MANGOS_DLL_SPEC bool LoadMangosStrings(DatabaseType& db, char const* table,int32 start_value, int32 end_value = std::numeric_limits<int32>::min(), bool extra_content = false);
-MANGOS_DLL_SPEC CreatureInfo const* GetCreatureTemplateStore(uint32 entry);
-MANGOS_DLL_SPEC Quest const* GetQuestTemplateStore(uint32 entry);
 
 #endif

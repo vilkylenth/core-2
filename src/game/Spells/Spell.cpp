@@ -572,6 +572,17 @@ void Spell::FillTargetMap()
                                 break;
                         }
                         break;
+                    case TARGET_LOCATION_UNIT_MINION_POSITION:
+                    case TARGET_LOCATION_CASTER_FRONT_RIGHT:
+                    case TARGET_LOCATION_CASTER_BACK_RIGHT:
+                    case TARGET_LOCATION_CASTER_BACK_LEFT:
+                    case TARGET_LOCATION_CASTER_FRONT_LEFT:
+                    case TARGET_LOCATION_CASTER_FRONT:
+                    case TARGET_LOCATION_CASTER_BACK:
+                    case TARGET_LOCATION_CASTER_LEFT:
+                    case TARGET_LOCATION_CASTER_RIGHT:
+                        SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetB[i], tmpUnitMap);
+                        break;
                     case 0:
                         SetTargetMap(SpellEffectIndex(i), m_spellInfo->EffectImplicitTargetA[i], tmpUnitMap);
                         if (m_casterUnit)
@@ -1332,7 +1343,20 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
         // Add bonuses and fill damageInfo struct
         else
         {
-            pCaster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, m_attackType, this);
+            // we need index of damage dealing effect for CalculateSpellDamage to use right bonus coefficient
+            SpellEffectIndex damageEffectIndex = EFFECT_INDEX_0;
+
+            for (uint8 effectNumber = 0; effectNumber < MAX_EFFECT_INDEX; ++effectNumber)
+            {
+                if ((mask & (1 << effectNumber)) &&
+                    IsDirectDamageWithBonusEffect(m_spellInfo->Effect[effectNumber]))
+                {
+                    damageEffectIndex = SpellEffectIndex(effectNumber);
+                    break;
+                }
+            }
+
+            pCaster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, damageEffectIndex, m_attackType, this);
         }
 
         unitTarget->CalculateAbsorbResistBlock(pCaster, &damageInfo, m_spellInfo, BASE_ATTACK, this);
@@ -1838,26 +1862,35 @@ void Spell::HandleDelayedSpellLaunch(TargetInfo *target)
         unit->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_HITBYSPELL);
     if (missInfo == SPELL_MISS_NONE || (missInfo == SPELL_MISS_REFLECT && target->reflectResult == SPELL_MISS_NONE))
     {
-        for (int32 effectNumber = 0; effectNumber < MAX_EFFECT_INDEX; ++effectNumber)
+        // we need index of damage dealing effect for CalculateSpellDamage to use right bonus coefficient
+        SpellEffectIndex damageEffectIndex = EFFECT_INDEX_0;
+
+        for (uint8 effectNumber = 0; effectNumber < MAX_EFFECT_INDEX; ++effectNumber)
         {
-            if (mask & (1 << effectNumber) && m_spellInfo->IsEffectHandledOnDelayedSpellLaunch(SpellEffectIndex(effectNumber)))
+            if (mask & (1 << effectNumber))
             {
-                HandleEffects(unit, nullptr, nullptr, SpellEffectIndex(effectNumber), m_damageMultipliers[effectNumber]);
-                if (m_applyMultiplierMask & (1 << effectNumber))
+                if (IsDirectDamageWithBonusEffect(m_spellInfo->Effect[effectNumber]))
+                    damageEffectIndex = SpellEffectIndex(effectNumber);
+
+                if (m_spellInfo->IsEffectHandledOnDelayedSpellLaunch(SpellEffectIndex(effectNumber)))
                 {
-                    // Get multiplier
-                    float multiplier = m_spellInfo->DmgMultiplier[effectNumber];
-                    // Apply multiplier mods
-                    if (Unit* pRealUnitCaster = ToUnit(pRealCaster))
-                        if (Player* modOwner = pRealUnitCaster->GetSpellModOwner())
-                            modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_EFFECT_PAST_FIRST, multiplier, this);
-                    m_damageMultipliers[effectNumber] *= multiplier;
+                    HandleEffects(unit, nullptr, nullptr, SpellEffectIndex(effectNumber), m_damageMultipliers[effectNumber]);
+                    if (m_applyMultiplierMask & (1 << effectNumber))
+                    {
+                        // Get multiplier
+                        float multiplier = m_spellInfo->DmgMultiplier[effectNumber];
+                        // Apply multiplier mods
+                        if (Unit* pRealUnitCaster = ToUnit(pRealCaster))
+                            if (Player* modOwner = pRealUnitCaster->GetSpellModOwner())
+                                modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_EFFECT_PAST_FIRST, multiplier, this);
+                        m_damageMultipliers[effectNumber] *= multiplier;
+                    }
                 }
             }
         }
 
         if (m_damage > 0)
-            pCaster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, m_attackType, this);
+            pCaster->CalculateSpellDamage(&damageInfo, m_damage, m_spellInfo, damageEffectIndex, m_attackType, this);
     }
 
     target->damage = damageInfo.damage;
@@ -2113,13 +2146,6 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 targetUnitMap.push_back(m_casterUnit);
             else if (m_casterGo)
                 AddGOTarget(m_casterGo, effIndex);
-            break;
-        case TARGET_LOCATION_CASTER_FRONT_RIGHT:
-        case TARGET_LOCATION_CASTER_BACK_RIGHT:
-        case TARGET_LOCATION_CASTER_BACK_LEFT:
-        case TARGET_LOCATION_CASTER_FRONT_LEFT:
-            if (m_casterUnit)
-                targetUnitMap.push_back(m_casterUnit);
             break;
         case TARGET_UNIT_ENEMY_NEAR_CASTER:
         {
@@ -2995,11 +3021,15 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 sLog.outError("SPELL: unknown target coordinates for spell ID %u", m_spellInfo->Id);
             break;
         }
+        case TARGET_LOCATION_UNIT_MINION_POSITION: // unknown how pet summon is different - maybe some formation support?
+        case TARGET_LOCATION_CASTER_FRONT_RIGHT:
+        case TARGET_LOCATION_CASTER_BACK_RIGHT:
+        case TARGET_LOCATION_CASTER_BACK_LEFT:
+        case TARGET_LOCATION_CASTER_FRONT_LEFT:
         case TARGET_LOCATION_CASTER_FRONT:
         case TARGET_LOCATION_CASTER_BACK:
         case TARGET_LOCATION_CASTER_LEFT:
         case TARGET_LOCATION_CASTER_RIGHT:
-        case TARGET_LOCATION_UNIT_MINION_POSITION:
         {     
             if (targetMode == TARGET_LOCATION_UNIT_MINION_POSITION && m_spellInfo->Effect[effIndex] == SPELL_EFFECT_DUEL)
                 break;
@@ -3018,17 +3048,14 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
                 switch (targetMode)
                 {
                     case TARGET_LOCATION_UNIT_MINION_POSITION:
-                    case TARGET_LOCATION_CASTER_FRONT:
-                        break;
-                    case TARGET_LOCATION_CASTER_BACK:
-                        angle += M_PI_F;
-                        break;
-                    case TARGET_LOCATION_CASTER_LEFT:
-                        angle += M_PI_F / 2;
-                        break;
-                    case TARGET_LOCATION_CASTER_RIGHT:
-                        angle -= M_PI_F / 2;
-                        break;
+                    case TARGET_LOCATION_CASTER_FRONT_LEFT:  angle += M_PI_F * 0.25f; break;
+                    case TARGET_LOCATION_CASTER_BACK_LEFT:   angle += M_PI_F * 0.75f; break;
+                    case TARGET_LOCATION_CASTER_BACK_RIGHT:  angle += M_PI_F * 1.25f; break;
+                    case TARGET_LOCATION_CASTER_FRONT_RIGHT: angle += M_PI_F * 1.75f; break;
+                    case TARGET_LOCATION_CASTER_FRONT:                                break;
+                    case TARGET_LOCATION_CASTER_BACK:        angle += M_PI_F;         break;
+                    case TARGET_LOCATION_CASTER_LEFT:        angle += M_PI_F / 2;     break;
+                    case TARGET_LOCATION_CASTER_RIGHT:       angle -= M_PI_F / 2;     break;
                 }
 
                 float x, y, z;
@@ -6096,7 +6123,10 @@ SpellCastResult Spell::CheckCast(bool strict)
                 {
                     // spell different for friends and enemies
                     // hart version required facing
-                    if (m_targets.getUnitTarget() && !m_caster->IsFriendlyTo(m_targets.getUnitTarget()) && !m_caster->HasInArc(M_PI_F, m_targets.getUnitTarget()))
+                    if (m_targets.getUnitTarget() &&
+                       !m_caster->IsFriendlyTo(m_targets.getUnitTarget()) &&
+                       (m_caster->GetDistance2dToCenter(m_targets.getUnitTarget()) > NO_FACING_CHECKS_DISTANCE) &&
+                       !m_caster->HasInArc(M_PI_F, m_targets.getUnitTarget()))
                         return SPELL_FAILED_UNIT_NOT_INFRONT;
                 }
                 else if (m_spellInfo->Id == 13278)      // Gnomish Death Ray
@@ -7205,7 +7235,8 @@ SpellCastResult Spell::CheckRange(bool strict)
                     return SPELL_CAST_OK;
 
                 // Requires target forward for these spells
-                if (!m_caster->HasInArc(M_PI_F, target))
+                if ((m_caster->GetDistance2dToCenter(target) > NO_FACING_CHECKS_DISTANCE) &&
+                    !m_caster->HasInArc(M_PI_F, target))
                     return SPELL_FAILED_UNIT_NOT_INFRONT;
 
                 float range_mod = 1.0f;
@@ -7259,7 +7290,9 @@ SpellCastResult Spell::CheckRange(bool strict)
         if (min_range && dist < min_range)
             return SPELL_FAILED_TOO_CLOSE;
         if (m_caster->IsPlayer() &&
-                (m_spellInfo->Custom & SPELL_CUSTOM_FACE_TARGET) && !m_caster->HasInArc(M_PI_F, target))
+           (m_spellInfo->Custom & SPELL_CUSTOM_FACE_TARGET) &&
+           (m_caster->GetDistance2dToCenter(target) > NO_FACING_CHECKS_DISTANCE) &&
+           !m_caster->HasInArc(M_PI_F, target))
             return SPELL_FAILED_UNIT_NOT_INFRONT;
     }
 

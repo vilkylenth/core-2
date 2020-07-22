@@ -26,12 +26,14 @@ char const AreaTableEntryfmt[]="niiiixxxxxissssssssxixxxi";
 char const AreaTriggerEntryfmt[]="niffffffff";
 char const AuctionHouseEntryfmt[]="niiixxxxxxxxx";
 char const BankBagSlotPricesEntryfmt[]="ni";
+char const CharSectionsEntryfmt[] = "diiiiixxxi";
+char const CharacterFacialHairStylesfmt[] = "iiixxxxxx";
 #if SUPPORTED_CLIENT_BUILD > CLIENT_BUILD_1_9_4
 char const ChrClassesEntryfmt[]="nxxixssssssssxxix";
 #else
 char const ChrClassesEntryfmt[] = "nxxixssssssssxxi";
 #endif
-char const ChrRacesEntryfmt[]="niixiixxixxxxxixissssssssxxxx";
+char const ChrRacesEntryfmt[]="niixiixxiixxixixissssssssxxxx";
 char const ChatChannelsEntryfmt[]="nixssssssssxxxxxxxxxx";                 // ChatChannelsEntryfmt, index not used (more compact store)
 char const CinematicSequencesEntryfmt[]="nxxxxxxxxx";
 char const CreatureDisplayInfofmt[]="nixifxxxxxxx";

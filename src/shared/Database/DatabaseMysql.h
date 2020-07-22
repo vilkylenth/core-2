@@ -32,13 +32,21 @@
 
 #ifdef WIN32
 #include <winsock2.h>
-#include <mysql/mysql.h>
-#else
+#endif
 #include <mysql.h>
+
+// my_bool declaration is removed in 8.0
+#if MYSQL_VERSION_ID >= 80000
+typedef char my_bool;
+#ifdef _MSC_VER
+#pragma message("You are using an incompatible mysql version!")
+#else
+#warning "You are using an incompatible mysql version!"
+#endif
 #endif
 
 //MySQL prepared statement class
-class MANGOS_DLL_SPEC MySqlPreparedStatement : public SqlPreparedStatement
+class MySqlPreparedStatement : public SqlPreparedStatement
 {
 public:
     MySqlPreparedStatement(std::string const& fmt, SqlConnection& conn, MYSQL* mysql);
@@ -69,7 +77,7 @@ private:
     MYSQL_RES* m_pResultMetadata;
 };
 
-class MANGOS_DLL_SPEC MySQLConnection : public SqlConnection
+class MySQLConnection : public SqlConnection
 {
     public:
         MySQLConnection(Database& db) : SqlConnection(db), mMysql(nullptr) {}
@@ -99,7 +107,7 @@ class MANGOS_DLL_SPEC MySQLConnection : public SqlConnection
         MYSQL* mMysql;
 };
 
-class MANGOS_DLL_SPEC DatabaseMysql : public Database
+class DatabaseMysql : public Database
 {
     friend class MaNGOS::OperatorNew<DatabaseMysql>;
 

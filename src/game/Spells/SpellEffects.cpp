@@ -514,8 +514,8 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                 if (m_spellInfo->SpellIconID == 42)
                 {
                     m_attackType = BASE_ATTACK;    // Set as base attack to benefit from melee crit
-                    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, damage, SPELL_DIRECT_DAMAGE);
-                    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, damage, SPELL_DIRECT_DAMAGE);
+                    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, effect_idx, damage, SPELL_DIRECT_DAMAGE);
+                    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, effect_idx, damage, SPELL_DIRECT_DAMAGE);
                 }
                 // Judgement of Command - receive bonus from spell damage
                 else if (m_spellInfo->SpellIconID == 561)
@@ -524,8 +524,8 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
                     if (!unitTarget->HasUnitState(UNIT_STAT_STUNNED | UNIT_STAT_PENDING_STUNNED))
                         damage = int32(damage * 0.5f);
 
-                    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, damage, SPELL_DIRECT_DAMAGE);
-                    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, damage, SPELL_DIRECT_DAMAGE);
+                    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, effect_idx, damage, SPELL_DIRECT_DAMAGE);
+                    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, effect_idx, damage, SPELL_DIRECT_DAMAGE);
                 }
                 break;
             }
@@ -548,6 +548,19 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
         {
             switch (m_spellInfo->Id)
             {
+                case 9009: // Coarse Dynamite (used by npc 1073)
+                {
+                    if (!m_casterUnit)
+                        return;
+                   
+                    Unit* pCaster = m_casterUnit;
+                    uint32 spellId = PickRandomValue(9002, 9003, 9004);
+                    pCaster->m_Events.AddLambdaEventAtOffset([pCaster, spellId]
+                    {
+                        pCaster->CastSpell(pCaster, spellId, false);
+                    }, 1);
+                    return;
+                }
                 case 23383: // Alliance Flag Click
                 case 23384: // Horde Flag Click
                 {
@@ -795,33 +808,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
                         return;
 
-                    uint32 spell_id = 0;
-                    switch (urand(0, 6))
-                    {
-                        case 0:
-                            spell_id = 16707;
-                            break;    // Hex
-                        case 1:
-                            spell_id = 16708;
-                            break;    // Hex
-                        case 2:
-                            spell_id = 16709;
-                            break;    // Hex
-                        case 3:
-                            spell_id = 16711;
-                            break;    // Grow
-                        case 4:
-                            spell_id = 16712;
-                            break;    // Special Brew
-                        case 5:
-                            spell_id = 16713;
-                            break;    // Ghostly
-                        case 6:
-                            spell_id = 16716;
-                            break;    // Launch
-                    }
-
-                    m_caster->CastSpell(unitTarget, spell_id, true, nullptr, nullptr, m_originalCasterGUID, m_spellInfo);
+                    uint32 spellId = PickRandomValue(16707, 16708, 16709, 16711, 16712, 16713, 16716);
+                    m_caster->CastSpell(unitTarget, spellId, true, nullptr, nullptr, m_originalCasterGUID, m_spellInfo);
                     return;
                 }
                 case 3360:                                  // Curse of the Eye
@@ -849,26 +837,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     if (!pPlayer)
                         return;
 
-                    uint32 spell_id = 0;
-                    switch (urand(1, 5))
-                    {
-                        case 1:
-                            spell_id = 8064;
-                            break;     // Sleepy
-                        case 2:
-                            spell_id = 8065;
-                            break;     // Invigorate
-                        case 3:
-                            spell_id = 8066;
-                            break;     // Shrink
-                        case 4:
-                            spell_id = 8067;
-                            break;     // Party Time!
-                        case 5:
-                            spell_id = 8068;
-                            break;     // Healthy Spirit
-                    }
-                    pPlayer->CastSpell(pPlayer, spell_id, true, nullptr);
+                    uint32 spellId = PickRandomValue(8064, 8065, 8066, 8067, 8068);
+                    pPlayer->CastSpell(pPlayer, spellId, true, nullptr);
                     return;
                 }
                 case 8213:                                  // Savory Deviate Delight
@@ -1049,21 +1019,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     if (!pPlayer)
                         return;
 
-                    uint32 spell_id = 0;
-                    switch (urand(1, 3))
-                    {
-                        case 1:
-                            spell_id = 16595;
-                            break;
-                        case 2:
-                            spell_id = 16593;
-                            break;
-                        default:
-                            spell_id = 16591;
-                            break;
-                    }
-
-                    pPlayer->CastSpell(pPlayer, spell_id, true, nullptr);
+                    uint32 spellId = PickRandomValue(16595, 16593, 16591);
+                    pPlayer->CastSpell(pPlayer, spellId, true, nullptr);
                     return;
                 }
                 case 17251:                                 // Spirit Healer Res
@@ -1109,9 +1066,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         return;
 
                     // Shadow Portal
-                    uint32 const spell_list[6] = {17863, 17939, 17943, 17944, 17946, 17948};
-
-                    m_caster->CastSpell(unitTarget, spell_list[urand(0, 5)], true);
+                    uint32 spellId = PickRandomValue(17863, 17939, 17943, 17944, 17946, 17948);
+                    m_caster->CastSpell(unitTarget, spellId, true);
                     return;
                 }
                 case 18350:                                 // Dummy Trigger
@@ -1382,25 +1338,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     if (!m_casterUnit)
                         return;
 
-                    uint32 spell_id = 0;
-
-                    switch (urand(1, 4))
-                    {
-                        case 1:
-                            spell_id = 24924;
-                            break;    // Larger and Orange
-                        case 2:
-                            spell_id = 24925;
-                            break;    // Skeleton
-                        case 3:
-                            spell_id = 24926;
-                            break;    // Pirate
-                        case 4:
-                            spell_id = 24927;
-                            break;    // Ghost
-                    }
-
-                    m_casterUnit->CastSpell(m_casterUnit, spell_id, true);
+                    uint32 spellId = PickRandomValue(24924, 24925, 24926, 24927);
+                    m_casterUnit->CastSpell(m_casterUnit, spellId, true);
                     return;
                 }
                 case 25860:                                 // Reindeer Transformation
@@ -1546,13 +1485,12 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 {
                     if (!m_caster || !m_caster->IsPlayer())
                         return;
-                    static constexpr uint32 AshbringerSounds[12] = { 8906,8907,8908,8920,8921,8922,8923,8924,8925,8926,8927,8928};
-                    m_caster->PlayDirectSound(AshbringerSounds[urand(0, 11)], m_caster->ToPlayer());
+                    uint32 ashbringerSound = PickRandomValue(8906,8907,8908,8920,8921,8922,8923,8924,8925,8926,8927,8928);
+                    m_caster->PlayDirectSound(ashbringerSound, m_caster->ToPlayer());
                     return;
                 }
                 case 28441:                                 // AB Effect 000
                 {
-
                     return;
                 }
                 case 28697:                                 // Forgiveness (SM Ashbringer event)
@@ -1727,21 +1665,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 if (!m_casterUnit)
                     return;
 
-                switch (urand(0, 3))
-                {
-                    case 0:        // Corrupted Fire Nova Totem
-                        m_casterUnit->CastSpell(m_casterUnit, 23419, true);
-                        break;
-                    case 1:        // Corrupted Stoneskin Totem
-                        m_casterUnit->CastSpell(m_casterUnit, 23420, true);
-                        break;
-                    case 2:        // Corrupted Windfury Totem
-                        m_casterUnit->CastSpell(m_casterUnit, 23423, true);
-                        break;
-                    case 3:        // Corrupted Healing Stream Totem
-                        m_casterUnit->CastSpell(m_casterUnit, 23422, true);
-                        break;
-                }
+                uint32 spellId = PickRandomValue(23419, 23420, 23422, 23423);
+                m_casterUnit->CastSpell(m_casterUnit, spellId, true);
                 return;
             }
             break;
@@ -1759,8 +1684,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 if (Player* modOwner = m_casterUnit->GetSpellModOwner())
                     modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_COST, cost, this);
 
-                int32 dmg = m_casterUnit->SpellDamageBonusDone(m_casterUnit, m_spellInfo, uint32(cost > 0 ? cost : 0), SPELL_DIRECT_DAMAGE);
-                dmg = m_casterUnit->SpellDamageBonusTaken(m_casterUnit, m_spellInfo, dmg, SPELL_DIRECT_DAMAGE);
+                int32 dmg = m_casterUnit->SpellDamageBonusDone(m_casterUnit, m_spellInfo, eff_idx, uint32(cost > 0 ? cost : 0), SPELL_DIRECT_DAMAGE);
+                dmg = m_casterUnit->SpellDamageBonusTaken(m_casterUnit, m_spellInfo, eff_idx, dmg, SPELL_DIRECT_DAMAGE);
 
                 if (int32(m_casterUnit->GetHealth()) > dmg)
                 {
@@ -1789,6 +1714,23 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
 
                 return;
             }
+#if SUPPORTED_CLIENT_BUILD <= CLIENT_BUILD_1_10_2
+            if (m_spellInfo->Id == 18280) // Curse of Agony Dummy
+            {
+                if (SpellEntry const* pSpellEntry = m_triggeredByAuraSpell)
+                {
+                    WorldObject* pCaster = m_caster;
+                    if (SpellAuraHolder const* pAuraHolder = unitTarget->GetSpellAuraHolder(pSpellEntry->Id))
+                        if (Unit* pAuraCaster = pAuraHolder->GetCaster())
+                            pCaster = pAuraCaster;
+
+                    int32 damagePoint = m_triggeredByAuraBasePoints;
+                    damagePoint = pCaster->SpellDamageBonusDone(unitTarget, pSpellEntry, EFFECT_INDEX_0, damagePoint, DOT);
+                    pCaster->CastCustomSpell(unitTarget, 18277, &damagePoint, nullptr, nullptr, true);
+                }
+                return;
+            }
+#endif
             break;
         }
         case SPELLFAMILY_PRIEST:
@@ -2066,10 +2008,7 @@ void Spell::EffectTriggerSpell(SpellEffectIndex eff_idx)
     {
         // The Only Cure is More Green Glow quest 2962
         case 12709:
-            if (urand(0, 2))
-                m_caster->CastSpell(unitTarget, 11638, true, m_CastItem, nullptr, m_originalCasterGUID);
-            else
-                m_caster->CastSpell(unitTarget, 11637, true, m_CastItem, nullptr, m_originalCasterGUID);
+            m_caster->CastSpell(unitTarget, (urand(0, 2) ? 11638 : 11637), true, m_CastItem, nullptr, m_originalCasterGUID);
             return;
         // Linken's Boomerang: 10% chance to proc stun, 3% chance to proc disarm (dubious numbers)
         case 15712:
@@ -2367,8 +2306,8 @@ void Spell::EffectPowerDrain(SpellEffectIndex eff_idx)
     int32 curPower = unitTarget->GetPower(drain_power);
 
     //add spell damage bonus
-    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, uint32(damage), SPELL_DIRECT_DAMAGE, 1, this);
-    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, uint32(damage), SPELL_DIRECT_DAMAGE, 1, this);
+    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, eff_idx, uint32(damage), SPELL_DIRECT_DAMAGE, 1, this);
+    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, eff_idx, uint32(damage), SPELL_DIRECT_DAMAGE, 1, this);
 
     int32 new_damage;
     if (curPower < damage)
@@ -2514,8 +2453,8 @@ void Spell::EffectHeal(SpellEffectIndex eff_idx)
         if (m_spellInfo->SpellIconID == 299 && m_spellInfo->SpellVisual == 5560 && m_spellInfo->SpellFamilyFlags == 0 && m_triggeredByAuraBasePoints > 0)
             addhealth += m_triggeredByAuraBasePoints;
 
-        addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, addhealth, HEAL, 1, this);
-        addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, addhealth, HEAL, 1, this);
+        addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, eff_idx, addhealth, HEAL, 1, this);
+        addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, eff_idx, addhealth, HEAL, 1, this);
 
 #if SUPPORTED_CLIENT_BUILD <= CLIENT_BUILD_1_9_4
         ExecuteLogInfo info(unitTarget->GetObjectGuid());
@@ -2528,7 +2467,7 @@ void Spell::EffectHeal(SpellEffectIndex eff_idx)
     }
 }
 
-void Spell::EffectHealMechanical(SpellEffectIndex /*eff_idx*/)
+void Spell::EffectHealMechanical(SpellEffectIndex eff_idx)
 {
     // Mechanic creature type should be correctly checked by targetCreatureType field
     if (unitTarget && unitTarget->IsAlive() && damage >= 0)
@@ -2538,8 +2477,8 @@ void Spell::EffectHealMechanical(SpellEffectIndex /*eff_idx*/)
         if (!caster)
             return;
 
-        uint32 addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, damage, HEAL);
-        addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, addhealth, HEAL);
+        uint32 addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, eff_idx, damage, HEAL);
+        addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, eff_idx, addhealth, HEAL);
 
         caster->DealHeal(unitTarget, addhealth, m_spellInfo);
     }
@@ -2551,8 +2490,8 @@ void Spell::EffectHealthLeech(SpellEffectIndex effIndex)
         return;
 
     int32 initialDamage = damage;
-    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, uint32(damage), SPELL_DIRECT_DAMAGE);
-    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, uint32(damage), SPELL_DIRECT_DAMAGE);
+    damage = m_caster->SpellDamageBonusDone(unitTarget, m_spellInfo, effIndex, uint32(damage), SPELL_DIRECT_DAMAGE);
+    damage = unitTarget->SpellDamageBonusTaken(m_caster, m_spellInfo, effIndex, uint32(damage), SPELL_DIRECT_DAMAGE);
 
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "HealthLeech :%i", damage);
 
@@ -3489,33 +3428,11 @@ void Spell::EffectSummonWild(SpellEffectIndex eff_idx)
                     break;
                 // Chained Essence of Eranikus
                 case 12766:
-                    int EranikusText = -1001012;
-                    switch (urand(0, 7))
-                    {
-                        case 1:
-                            EranikusText = -1001013;
-                            break;
-                        case 2:
-                            EranikusText = -1001014;
-                            break;
-                        case 3:
-                            EranikusText = -1001015;
-                            break;
-                        case 4:
-                            EranikusText = -1001016;
-                            break;
-                        case 5:
-                            EranikusText = -1001017;
-                            break;
-                        case 6:
-                            EranikusText = -1001018;
-                            break;
-                        case 7:
-                            EranikusText = -1001019;
-                            break;
-                    }
                     if (m_casterUnit)
-                        summon->MonsterWhisper(EranikusText, m_casterUnit);
+                    {
+                        uint32 textId = PickRandomValue(4438, 4439, 4440, 4441, 4442, 4443, 4444, 4445);
+                        summon->MonsterWhisper(textId, m_casterUnit);
+                    }
                     break;
             }
 
@@ -4309,8 +4226,8 @@ void Spell::EffectWeaponDmg(SpellEffectIndex eff_idx)
     if (m_spellInfo->School == SPELL_SCHOOL_HOLY)
     {
         // Add spell gear bonus and spell modifiers
-        bonus = m_casterUnit->SpellDamageBonusDone(unitTarget, m_spellInfo, bonus, SPELL_DIRECT_DAMAGE);
-        bonus = unitTarget->SpellDamageBonusTaken(m_casterUnit, m_spellInfo, bonus, SPELL_DIRECT_DAMAGE);
+        bonus = m_casterUnit->SpellDamageBonusDone(unitTarget, m_spellInfo, eff_idx, bonus, SPELL_DIRECT_DAMAGE);
+        bonus = unitTarget->SpellDamageBonusTaken(m_casterUnit, m_spellInfo, eff_idx, bonus, SPELL_DIRECT_DAMAGE);
     }
 
     // prevent negative damage
@@ -4698,6 +4615,17 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 case 24590:                                 // Brittle Armor - need remove one 24575 Brittle Armor aura
                     unitTarget->RemoveAuraHolderFromStack(24575);
                     return;
+                case 24693:                                 // Hakkar Power Down - cast by priests on death
+                {
+                    if (!m_casterUnit)
+                        return;
+
+                    if (Map* pMap = m_casterUnit->GetMap())
+                        if (InstanceData* pInstance = pMap->GetInstanceData())
+                            pInstance->SetData(0, 0);
+
+                    return;
+                }
                 case 24714:                                 // Trick
                 {
                     if (m_caster->GetTypeId() != TYPEID_PLAYER)
@@ -4812,21 +4740,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         pTonk->m_spells[0] = 24933;
                         pTonk->m_spells[1] = 25003;
                         pTonk->m_spells[2] = 27746;
-                        switch (urand(0, 3))
-                        {
-                            case 0:
-                                pTonk->m_spells[3] = 25026;
-                                break;
-                            case 1:
-                                pTonk->m_spells[3] = 25027;
-                                break;
-                            case 2:
-                                pTonk->m_spells[3] = 27759;
-                                break;
-                            case 3:
-                                pTonk->m_spells[3] = 25024;
-                                break;
-                        }
+                        pTonk->m_spells[3] = PickRandomValue(25024, 25026, 25027, 27759);
                         m_caster->CastSpell(pTonk, 24937, true);
                     }
                     return;
@@ -4852,9 +4766,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
                         return;
 
-                    uint32 spells[2] = {26206, 26207};
-
-                    m_caster->CastSpell(unitTarget, spells[urand(0, 1)], true);
+                    m_caster->CastSpell(unitTarget, urand(0, 1) ? 26206 : 26207, true);
                     return;
                 }
                 case 26275:                                 // PX-238 Winter Wondervolt TRAP
@@ -5056,9 +4968,11 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                 }
                 case 26678:                                 // Bag of Candies
                 {
-                    uint32 candySpells[8] = { 26668, 26670, 26671, 26672, 26673, 26674, 26675, 26676 };
                     if (m_casterUnit)
-                        m_casterUnit->CastSpell(m_casterUnit, candySpells[urand(0, 7)], true);
+                    {
+                        uint32 spellId = PickRandomValue(26668, 26670, 26671, 26672, 26673, 26674, 26675, 26676);
+                        m_casterUnit->CastSpell(m_casterUnit, spellId, true);
+                    }
                     return;
                 }
                 case 27657:                                 // Valentine End Check
@@ -6521,23 +6435,7 @@ void Spell::EffectTransmitted(SpellEffectIndex eff_idx)
 
             // end time of range when possible catch fish (FISHING_BOBBER_READY_TIME..GetDuration(m_spellInfo))
             // start time == fish-FISHING_BOBBER_READY_TIME (0..GetDuration(m_spellInfo)-FISHING_BOBBER_READY_TIME)
-            int32 lastSec = 0;
-            switch (urand(0, 3))
-            {
-                case 0:
-                    lastSec =  3;
-                    break;
-                case 1:
-                    lastSec =  7;
-                    break;
-                case 2:
-                    lastSec = 13;
-                    break;
-                case 3:
-                    lastSec = 17;
-                    break;
-            }
-
+            int32 lastSec = PickRandomValue(3, 7, 13, 17);
             duration = duration - lastSec * IN_MILLISECONDS + FISHING_BOBBER_READY_TIME * IN_MILLISECONDS;
             break;
         }

@@ -99,6 +99,41 @@ struct ChatChannelsEntry
                                                             // 20 string flag
 };
 
+struct CharacterFacialHairStylesEntry
+{
+    uint32 RaceID;                                          // 0
+    uint32 SexID;                                           // 1
+    uint32 VariationID;                                     // 2
+  //uint32 Geoset[6];                                       // 3-8
+};
+
+enum CharSectionFlags
+{
+    SECTION_FLAG_UNAVAILABLE = 0x01,
+};
+
+enum CharSectionType
+{
+    SECTION_TYPE_SKIN = 0,
+    SECTION_TYPE_FACE = 1,
+    SECTION_TYPE_FACIAL_HAIR = 2,
+    SECTION_TYPE_HAIR = 3,
+    SECTION_TYPE_UNDERWEAR = 4
+};
+
+struct CharSectionsEntry
+{
+    //uint32 Id;
+    uint32 Race;
+    uint32 Gender;
+    uint32 BaseSection;
+    uint32 VariationIndex;
+    uint32 ColorIndex;
+    //char* TexturePath[3];
+    uint32 Flags;
+    inline bool HasFlag(CharSectionFlags flag) const { return (Flags & flag) != 0; }
+};
+
 struct ChrClassesEntry
 {
     uint32  ClassID;                                        // 0        m_ID
@@ -113,29 +148,38 @@ struct ChrClassesEntry
     //uint32 flags2;                                        // 16       m_flags (0x1 HasRelicSlot)
 };
 
+enum ChrRacesFlags
+{
+    CHRRACES_FLAGS_NOT_PLAYABLE = 0x01,
+    CHRRACES_FLAGS_BARE_FEET    = 0x02,
+    CHRRACES_FLAGS_CAN_MOUNT    = 0x04
+};
+
 struct ChrRacesEntry
 {
-    uint32      RaceID;                                     // 0        m_ID
+    uint32      RaceID;                                     // 0        m_Id
     uint32      Flags;                                      // 1        m_flags
-    uint32      FactionID;                                  // 2        m_factionID
-                                                            // 3        m_ExplorationSoundID
+    uint32      FactionID;                                  // 2        m_factionId
+                                                            // 3        m_ExplorationSoundId
     uint32      model_m;                                    // 4        m_MaleDisplayId
     uint32      model_f;                                    // 5        m_FemaleDisplayId
                                                             // 6        m_ClientPrefix
                                                             // 7        unused
     uint32      TeamID;                                     // 8        m_BaseLanguage (7-Alliance 1-Horde)
-                                                            // 9        m_creatureType
+    uint32      creatureType;                               // 9        m_creatureType (blizzlike always 7-humanoid)
                                                             // 10       unused, all 836
                                                             // 11       unused, all 1604
-                                                            // 12       m_ResSicknessSpellID
+    uint32      resSicknessSpellId;                         // 12       m_ResSicknessSpellId (blizzlike always 15007)
                                                             // 13       m_SplashSoundID
     uint32      startingTaxiMask;                           // 14
                                                             // 15       m_clientFileString
-    uint32      CinematicSequence;                          // 16       m_cinematicSequenceID
+    uint32      CinematicSequence;                          // 16       m_cinematicSequenceId
     char*       name[8];                                    // 17-24    m_name_lang used for DBC language detection/selection
                                                             // 25 string flags
                                                             // 26-27    m_facialHairCustomization[2]
                                                             // 28       m_hairCustomization
+
+    inline bool HasFlag(ChrRacesFlags flag) const { return !!(Flags & flag); }
 };
 
 /*struct CinematicCameraEntry
@@ -184,6 +228,11 @@ struct CreatureDisplayInfoExtraEntry
     //char*                                                 // 18       m_BakeName CreatureDisplayExtra-*.blp
 };
 
+enum CreatureModelDataFlags
+{
+    CREATURE_MODEL_DATA_FLAGS_CAN_MOUNT = 0x00000080
+};
+
 struct CreatureModelDataEntry
 {
     uint32_t ID;                                            // 0        m_ID
@@ -202,6 +251,8 @@ struct CreatureModelDataEntry
     //uint32 creatureSoundId                                // 13       m_soundId
     //float collisionWidth;                                 // 14       m_collisionWidth
     float collisionHeight;                                  // 15       m_collisionHeight
+
+    inline bool HasFlag(CreatureModelDataFlags flag) const { return !!(flags & flag); }
 };
 
 struct CreatureFamilyEntry
@@ -225,12 +276,19 @@ struct CreatureSpellDataEntry
     //uint32    availability[MAX_CREATURE_SPELL_DATA_SLOT]; // 4-7      m_availability[4]
 };
 
+enum CreatureTypeEntryFlags
+{
+    CREATURE_TYPE_ENTRY_FLAGS_IGNORED_TAB_TARGETING = 0x01 // Means do not include in tab targeting.
+};
+
 struct CreatureTypeEntry
 {
     uint32    ID;                                           // 0        m_ID
     //char*   Name[8];                                      // 1-8      m_name_lang
                                                             // 9 string flags
-    //uint32    no_expirience;                              // 10       m_flags
+    //uint32    flags;                                      // 10       m_flags
+
+    //inline bool HasFlag(CreatureTypeEntryFlags flag) const { return !!(flags & flag); }
 };
 
 struct DurabilityCostsEntry

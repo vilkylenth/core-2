@@ -645,7 +645,7 @@ struct InstancePlayerBind
 
 #define MAX_INSTANCE_PER_ACCOUNT_PER_HOUR 5
 
-class MANGOS_DLL_SPEC PlayerTaxi
+class PlayerTaxi
 {
     public:
         PlayerTaxi();
@@ -851,7 +851,7 @@ struct ScheduledTeleportData
     std::function<void()> recover = std::function<void()>();
 };
 
-class MANGOS_DLL_SPEC Player final: public Unit
+class Player final: public Unit
 {
     friend class WorldSession;
     friend void Item::AddToUpdateQueueOf(Player* player);
@@ -1037,6 +1037,7 @@ class MANGOS_DLL_SPEC Player final: public Unit
         InventoryResult CanUseItem(Item* pItem, bool not_loading = true) const;
         InventoryResult CanUseItem(ItemPrototype const* pItem, bool not_loading = true) const;
         InventoryResult CanUseAmmo(uint32 item) const;
+        bool IsInDisallowedItemUseForm() const;
         Item* StoreNewItem(ItemPosCountVec const& pos, uint32 item, bool update, int32 randomPropertyId = 0);
         Item* StoreItem(ItemPosCountVec const& pos, Item* pItem, bool update);
         Item* EquipNewItem(uint16 pos, uint32 item, bool update);
@@ -1274,7 +1275,7 @@ class MANGOS_DLL_SPEC Player final: public Unit
         void SendCanTakeQuestResponse(uint32 msg) const;
         void SendQuestConfirmAccept(Quest const* pQuest, Player* pReceiver) const;
         void SendPushToPartyResponse(Player* pPlayer, uint8 msg) const;
-        void SendQuestUpdateAddItem(Quest const* pQuest, uint32 item_idx, uint32 count) const;
+        void SendQuestUpdateAddItem(Quest const* pQuest, uint32 item_idx, uint32 current, uint32 count);
         void SendQuestUpdateAddCreatureOrGo(Quest const* pQuest, ObjectGuid guid, uint32 creatureOrGO_idx, uint32 count);
 
         ObjectGuid GetDividerGuid() const { return m_dividerGuid; }
@@ -1323,6 +1324,7 @@ class MANGOS_DLL_SPEC Player final: public Unit
         bool HasAtLoginFlag(AtLoginFlags f) const { return m_atLoginFlags & f; }
         void SetAtLoginFlag(AtLoginFlags f) { m_atLoginFlags |= f; }
         void RemoveAtLoginFlag(AtLoginFlags f, bool in_db_also = false);
+        static bool ValidateAppearance(uint8 race, uint8 class_, uint8 gender, uint8 hairID, uint8 hairColor, uint8 faceID, uint8 facialHair, uint8 skinColor, bool create = false);
 
         /*********************************************************/
         /***                   SAVE SYSTEM                     ***/
@@ -2006,13 +2008,13 @@ class MANGOS_DLL_SPEC Player final: public Unit
         void SetCannotBeDetectedTimer(uint32 milliseconds) { m_cannotBeDetectedTimer = milliseconds; };
         bool CanBeDetected() const override { return m_cannotBeDetectedTimer <= 0; }
 
-        // Nostalrius
-        // Gestion des PlayerAI
+        // PlayerAI management
         PlayerAI* i_AI;
         PlayerAI* AI() { return i_AI; }
-        void setAI(PlayerAI* otherAI) { i_AI = otherAI; }
+        void SetAI(PlayerAI* otherAI) { i_AI = otherAI; }
         void SetControlledBy(Unit* Who);
         void RemoveAI();
+        void RemoveTemporaryAI(); // will restore player bot AI if needed
         void ModPossessPet(Pet* pet, bool apply, AuraRemoveMode m_removeMode = AURA_REMOVE_BY_DEFAULT);
 
         void SetDeathState(DeathState s) override;                   // overwrite Unit::SetDeathState

@@ -249,10 +249,18 @@ void ScriptMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
             }
             case SCRIPT_COMMAND_EMOTE:
             {
-                if (!sEmotesStore.LookupEntry(tmp.emote.emoteId))
+                if (!sEmotesStore.LookupEntry(tmp.emote.emoteId[0]))
                 {
-                    sLog.outErrorDb("Table `%s` has invalid emote id (datalong = %u) in SCRIPT_COMMAND_EMOTE for script id %u", tablename, tmp.emote.emoteId, tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid emote id (datalong = %u) in SCRIPT_COMMAND_EMOTE for script id %u", tablename, tmp.emote.emoteId[0], tmp.id);
                     continue;
+                }
+                for (uint32 i = 1; i < MAX_EMOTE_ID; i++)
+                {
+                    if (tmp.emote.emoteId[i] && !sEmotesStore.LookupEntry(tmp.emote.emoteId[i]))
+                    {
+                        sLog.outErrorDb("Table `%s` has invalid emote id (datalong%u = %u) in SCRIPT_COMMAND_EMOTE for script id %u", tablename, i, tmp.emote.emoteId[i], tmp.id);
+                        tmp.emote.emoteId[i] = 0;
+                    }
                 }
                 break;
             }
@@ -1229,6 +1237,16 @@ void ScriptMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
                 }
                 break;
             }
+            case SCRIPT_COMMAND_SET_GOSSIP_MENU:
+            {
+                if (tmp.setGossipMenu.gossipMenuId && !sObjectMgr.IsExistingGossipMenuId(tmp.setGossipMenu.gossipMenuId))
+                {
+                    sLog.outErrorDb("Table `%s` using nonexistent gossip menu (id: %u) in SCRIPT_COMMAND_SET_GOSSIP_MENU for script id %u",
+                        tablename, tmp.setGossipMenu.gossipMenuId, tmp.id);
+                    continue;
+                }
+                break;
+            }
         }
 
         if (scripts.find(tmp.id) == scripts.end())
@@ -1939,7 +1957,7 @@ void ScriptMgr::LoadDatabase()
 void ScriptMgr::LoadScriptTexts()
 {
     sLog.outString("Loading Script Texts...");
-    LoadMangosStrings(WorldDatabase, "script_texts", TEXT_SOURCE_TEXT_START, TEXT_SOURCE_TEXT_END, true);
+    sObjectMgr.LoadMangosStrings(WorldDatabase, "script_texts", TEXT_SOURCE_TEXT_START, TEXT_SOURCE_TEXT_END, true);
 
     QueryResult* result = WorldDatabase.PQuery("SELECT entry, sound, type, language, emote FROM script_texts WHERE entry BETWEEN %i AND %i", TEXT_SOURCE_TEXT_END, TEXT_SOURCE_TEXT_START);
 
@@ -2001,7 +2019,7 @@ void ScriptMgr::LoadScriptTexts()
 void ScriptMgr::LoadScriptTextsCustom()
 {
     sLog.outString("Loading Custom Texts...");
-    LoadMangosStrings(WorldDatabase, "custom_texts", TEXT_SOURCE_CUSTOM_START, TEXT_SOURCE_CUSTOM_END, true);
+    sObjectMgr.LoadMangosStrings(WorldDatabase, "custom_texts", TEXT_SOURCE_CUSTOM_START, TEXT_SOURCE_CUSTOM_END, true);
 
     QueryResult* result = WorldDatabase.PQuery("SELECT entry, sound, type, language, emote FROM custom_texts WHERE entry BETWEEN %i AND %i", TEXT_SOURCE_CUSTOM_END, TEXT_SOURCE_CUSTOM_START);
 
@@ -2098,7 +2116,7 @@ void ScriptMgr::LoadScriptWaypoints()
             pTemp.fZ                = pFields[4].GetFloat();
             pTemp.uiWaitTime        = pFields[5].GetUInt32();
 
-            CreatureInfo const* pCInfo = GetCreatureTemplateStore(pTemp.uiCreatureEntry);
+            CreatureInfo const* pCInfo = sObjectMgr.GetCreatureTemplate(pTemp.uiCreatureEntry);
 
             if (!pCInfo)
             {
@@ -2150,7 +2168,7 @@ void ScriptMgr::LoadEscortData()
             pTemp.uiQuestEntry       = pFields[1].GetUInt32();
             pTemp.uiEscortFaction    = pFields[2].GetUInt32();
 
-            CreatureInfo const* pCInfo = GetCreatureTemplateStore(pTemp.uiCreatureEntry);
+            CreatureInfo const* pCInfo = sObjectMgr.GetCreatureTemplate(pTemp.uiCreatureEntry);
 
             if (!pCInfo)
             {
@@ -2511,7 +2529,7 @@ void DoOrSimulateScriptTextForMap(int32 iTextEntry, uint32 uiCreatureEntry, Map*
     return;
     }
 
-    CreatureInfo const* pInfo = GetCreatureTemplateStore(uiCreatureEntry);
+    CreatureInfo const* pInfo = sObjectMgr.GetCreatureTemplate(uiCreatureEntry);
     if (!pInfo)
     {
         sLog.outError("DoOrSimulateScriptTextForMap has invalid source entry %u for map %u.", uiCreatureEntry, pMap->GetId());

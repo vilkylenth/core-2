@@ -55,6 +55,9 @@ enum MovementChangeType
     KNOCK_BACK
 };
 
+// No orientation check for auto attacks or spells below this distance.
+#define NO_FACING_CHECKS_DISTANCE 1.4f
+
 // Delay time next attack to prevent client attack animation problems
 #define ATTACK_DISPLAY_DELAY 200
 
@@ -420,9 +423,6 @@ enum NPCFlags
     UNIT_NPC_FLAG_OUTDOORPVP            = 0x20000000,       // custom flag for outdoor pvp creatures || Custom flag
 };
 
-// No orientation check for auto attacks below this distance.
-#define AUTO_ATTACK_FACING_LEEWAY 1.4f
-
 enum AutoAttackCheckResult
 {
     ATTACK_RESULT_OK = 0,
@@ -556,6 +556,29 @@ enum UnitDismountResult
     DISMOUNTRESULT_NOTMOUNTED   = 1,    // You're not mounted!
     DISMOUNTRESULT_NOTYOURPET   = 2,    // internal
     DISMOUNTRESULT_OK           = 3     // no error
+};
+
+// First entry in CreatureDisplayInfo.dbc
+#define UNIT_DISPLAY_ID_BOX 4
+
+enum ModelIds
+{
+    MODEL_HUMAN_MALE    = 49,
+    MODEL_HUMAN_FEMALE  = 50,
+    MODEL_ORC_MALE      = 51,
+    MODEL_ORC_FEMALE    = 52,
+    MODEL_DWARF_MALE    = 53,
+    MODEL_DWARF_FEMALE  = 54,
+    MODEL_NELF_MALE     = 55,
+    MODEL_NELF_FEMALE   = 56,
+    MODEL_UNDEAD_MALE   = 57,
+    MODEL_UNDEAD_FEMALE = 58,
+    MODEL_TAUREN_MALE   = 59,
+    MODEL_TAUREN_FEMALE = 60,
+    MODEL_GNOME_MALE    = 182,
+    MODEL_GNOME_FEMALE  = 183,
+    MODEL_TROLL_MALE    = 185,
+    MODEL_TROLL_FEMALE  = 186,
 };
 
 #endif

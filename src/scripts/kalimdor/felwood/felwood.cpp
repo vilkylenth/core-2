@@ -113,12 +113,14 @@ bool EffectDummyCreature_npc_kitten(WorldObject* /*pCaster*/, uint32 uiSpellId, 
     if (uiSpellId == SPELL_CORRUPT_SABER_VISUAL && effIndex == EFFECT_INDEX_0)
     {
         // Not nice way, however using UpdateEntry will not be correct.
-        if (CreatureInfo const* pTemp = GetCreatureTemplateStore(NPC_CORRUPT_SABER))
+        if (CreatureInfo const* pTemp = sObjectMgr.GetCreatureTemplate(NPC_CORRUPT_SABER))
         {
+            float scale;
+            uint32 displayId = Creature::ChooseDisplayId(pTemp, nullptr, nullptr, &scale);
             pCreatureTarget->SetEntry(pTemp->entry);
-            pCreatureTarget->SetDisplayId(Creature::ChooseDisplayId(pTemp));
+            pCreatureTarget->SetDisplayId(displayId);
             pCreatureTarget->SetName(pTemp->name);
-            pCreatureTarget->SetFloatValue(OBJECT_FIELD_SCALE_X, pTemp->scale);
+            pCreatureTarget->SetFloatValue(OBJECT_FIELD_SCALE_X, scale);
         }
 
         if (Unit* pOwner = pCreatureTarget->GetOwner())

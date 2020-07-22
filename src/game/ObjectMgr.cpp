@@ -286,6 +286,19 @@ void ObjectMgr::LoadAllIdentifiers()
         } while (result->NextRow());
     }
 
+    m_GossipMenuIdSet.clear();
+    result.reset(WorldDatabase.Query("SELECT DISTINCT `entry` FROM `gossip_menu`"));
+
+    if (result)
+    {
+        do
+        {
+            fields = result->Fetch();
+            uint32 id = fields[0].GetUInt32();
+            m_GossipMenuIdSet.insert(id);
+        } while (result->NextRow());
+    }
+
     sSpellMgr.LoadExistingSpellIds();
 }
 
@@ -1194,24 +1207,29 @@ void ObjectMgr::CheckCreatureTemplates()
         if (!factionTemplate)
             sLog.outErrorDb("Creature (Entry: %u) has nonexistent faction template (%u)", cInfo->entry, cInfo->faction);
 
-        // used later for scale
-        CreatureDisplayInfoEntry const* displayScaleEntry = nullptr;
-
+        uint32 displaySumProbability = 0;
         for (int i = 0; i < MAX_DISPLAY_IDS_PER_CREATURE; ++i)
         {
+            displaySumProbability += cInfo->display_probability[i];
+
             CorrectCreatureDisplayIds(cInfo->entry, const_cast<CreatureInfo*>(cInfo)->display_id[i]);
 
             if (cInfo->display_id[i])
             {
+                if (!cInfo->display_probability[i] && cInfo->display_total_probability)
+                {
+                    const_cast<CreatureInfo*>(cInfo)->display_id[i] = 0;
+                    continue;
+                }
+
                 CreatureDisplayInfoEntry const* displayEntry = sCreatureDisplayInfoStore.LookupEntry(cInfo->display_id[i]);
                 if (!displayEntry)
                 {
                     sLog.outErrorDb("Creature (Entry: %u) has nonexistent display_id%d (%u), can crash client", cInfo->entry, i + 1, cInfo->display_id[i]);
                     sLog.out(LOG_DBERRFIX, "UPDATE creature_template SET `display_id%d`=0 WHERE entry=%u;", i + 1, cInfo->entry);
                     const_cast<CreatureInfo*>(cInfo)->display_id[i] = 0;
+                    continue;
                 }
-                else if (!displayScaleEntry)
-                    displayScaleEntry = displayEntry;
 
                 CreatureDisplayInfoAddon const* minfo = sCreatureDisplayInfoAddonStorage.LookupEntry<CreatureDisplayInfoAddon>(cInfo->display_id[i]);
                 if (!minfo)
@@ -1219,8 +1237,8 @@ void ObjectMgr::CheckCreatureTemplates()
             }
         }
 
-        if (!displayScaleEntry)
-            sLog.outErrorDb("Creature (Entry: %u) does not have any valid display id", cInfo->entry);
+        if (displaySumProbability != cInfo->display_total_probability)
+            sLog.outErrorDb("Creature (Entry: %u) has a total display probability (%u) that does not match sum of individual probabilities (%u).", cInfo->entry, cInfo->display_total_probability, displaySumProbability);
 
         // use below code for 0-checks for unit_class
         if (!cInfo->unit_class)
@@ -1320,15 +1338,6 @@ void ObjectMgr::CheckCreatureTemplates()
         {
             if (!(cInfo->npc_flags & UNIT_NPC_FLAG_VENDOR))
                 sLog.outErrorDb("Table `creature_template` have creature (Entry: %u) with vendor_id %u but not have flag UNIT_NPC_FLAG_VENDOR (%u), vendor items will ignored.", cInfo->entry, cInfo->vendor_id, UNIT_NPC_FLAG_VENDOR);
-        }
-
-        /// if not set custom creature scale then load scale from CreatureDisplayInfo.dbc
-        if (cInfo->scale <= 0.0f)
-        {
-            if (displayScaleEntry)
-                const_cast<CreatureInfo*>(cInfo)->scale = displayScaleEntry->scale;
-            else
-                const_cast<CreatureInfo*>(cInfo)->scale = DEFAULT_OBJECT_SCALE;
         }
 
         if (cInfo->xp_multiplier < 0.0f)
@@ -6365,7 +6374,7 @@ void ObjectMgr::GetTaxiPath(uint32 source, uint32 destination, uint32& path, uin
 
 uint32 ObjectMgr::GetTaxiMountDisplayId(uint32 id, Team team, bool allowed_alt_team /* = false */)
 {
-    uint16 mount_entry = 0;
+    uint32 creatureId = 0;
 
     // select mount creature id
     TaxiNodesEntry const* node = GetTaxiNodeEntry(id);
@@ -6373,32 +6382,32 @@ uint32 ObjectMgr::GetTaxiMountDisplayId(uint32 id, Team team, bool allowed_alt_t
     {
         if (team == ALLIANCE)
         {
-            mount_entry = node->MountCreatureID[1];
-            if (!mount_entry && allowed_alt_team)
-                mount_entry = node->MountCreatureID[0];
+            creatureId = node->MountCreatureID[1];
+            if (!creatureId && allowed_alt_team)
+                creatureId = node->MountCreatureID[0];
         }
         else if (team == HORDE)
         {
-            mount_entry = node->MountCreatureID[0];
+            creatureId = node->MountCreatureID[0];
 
-            if (!mount_entry && allowed_alt_team)
-                mount_entry = node->MountCreatureID[1];
+            if (!creatureId && allowed_alt_team)
+                creatureId = node->MountCreatureID[1];
         }
     }
 
-    CreatureInfo const* mount_info = GetCreatureTemplate(mount_entry);
-    if (!mount_info)
+    CreatureInfo const* pCreatureInfo = GetCreatureTemplate(creatureId);
+    if (!pCreatureInfo)
         return 0;
 
-    uint16 mount_id = Creature::ChooseDisplayId(mount_info);
-    if (!mount_id)
+    uint32 displayId = Creature::ChooseDisplayId(pCreatureInfo);
+    if (!displayId)
         return 0;
 
-    CreatureDisplayInfoAddon const* minfo = GetCreatureDisplayInfoRandomGender(mount_id);
+    CreatureDisplayInfoAddon const* minfo = GetCreatureDisplayInfoRandomGender(displayId);
     if (minfo)
-        mount_id = minfo->display_id;
+        displayId = minfo->display_id;
 
-    return mount_id;
+    return displayId;
 }
 
 void ObjectMgr::LoadGraveyardZones()
@@ -9716,8 +9725,8 @@ void ObjectMgr::LoadGossipMenuItems()
     m_GossipMenuItemsMap.clear();
 
     std::unique_ptr<QueryResult> result(WorldDatabase.Query(
-                              "SELECT `menu_id`, `id`, `option_icon`, `option_text`, `OptionBroadcastTextID`, `option_id`, `npc_option_npcflag`, "
-                              "`action_menu_id`, `action_poi_id`, `action_script_id`, `box_coded`, `box_money`, `box_text`, `BoxBroadcastTextID`, "
+                              "SELECT `menu_id`, `id`, `option_icon`, `option_text`, `option_broadcast_text`, `option_id`, `npc_option_npcflag`, "
+                              "`action_menu_id`, `action_poi_id`, `action_script_id`, `box_coded`, `box_money`, `box_text`, `box_broadcast_text`, "
                               "`condition_id` "
                               "FROM `gossip_menu_option` ORDER BY `menu_id`, `id`"));
 
@@ -9773,8 +9782,7 @@ void ObjectMgr::LoadGossipMenuItems()
         gMenuItem.id                    = fields[1].GetUInt32();
         gMenuItem.option_icon           = fields[2].GetUInt8();
         gMenuItem.option_text           = fields[3].GetCppString();
-        gMenuItem.OptionBroadcastTextID = fields[4].GetUInt32();
-
+        gMenuItem.option_broadcast_text = fields[4].GetUInt32();
         gMenuItem.option_id             = fields[5].GetUInt32();
         gMenuItem.npc_option_npcflag    = fields[6].GetUInt32();
         gMenuItem.action_menu_id        = fields[7].GetInt32();
@@ -9783,9 +9791,8 @@ void ObjectMgr::LoadGossipMenuItems()
         gMenuItem.box_coded             = fields[10].GetUInt8() != 0;
         //gMenuItem.box_money             = fields[11].GetUInt32();
         gMenuItem.box_text              = fields[12].GetCppString();
-        gMenuItem.BoxBroadcastTextID    = fields[13].GetUInt32();
-
-        gMenuItem.conditionId           = fields[14].GetUInt16();
+        gMenuItem.box_broadcast_text    = fields[13].GetUInt32();
+        gMenuItem.condition_id          = fields[14].GetUInt16();
 
         if (gMenuItem.menu_id)                              // == 0 id is special and not have menu_id data
         {
@@ -9821,21 +9828,21 @@ void ObjectMgr::LoadGossipMenuItems()
         if (!IsValidGossipOptionIconForBuild(gMenuItem.option_icon))
             gMenuItem.option_icon = GOSSIP_ICON_CHAT;
 
-        if (gMenuItem.OptionBroadcastTextID)
+        if (gMenuItem.option_broadcast_text)
         {
-            if (!GetBroadcastTextLocale(gMenuItem.OptionBroadcastTextID))
+            if (!GetBroadcastTextLocale(gMenuItem.option_broadcast_text))
             {
-                sLog.outErrorDb("Table `gossip_menu_option` for MenuId %u, OptionID %u has non-existing or incompatible OptionBroadcastTextID %u, ignoring.", gMenuItem.menu_id, gMenuItem.id, gMenuItem.OptionBroadcastTextID);
-                gMenuItem.OptionBroadcastTextID = 0;
+                sLog.outErrorDb("Table `gossip_menu_option` for MenuId %u, OptionID %u has non-existing or incompatible option_broadcast_text %u, ignoring.", gMenuItem.menu_id, gMenuItem.id, gMenuItem.option_broadcast_text);
+                gMenuItem.option_broadcast_text = 0;
             }
         }
 
-        if (gMenuItem.BoxBroadcastTextID)
+        if (gMenuItem.box_broadcast_text)
         {
-            if (!GetBroadcastTextLocale(gMenuItem.BoxBroadcastTextID))
+            if (!GetBroadcastTextLocale(gMenuItem.box_broadcast_text))
             {
-                sLog.outErrorDb("Table `gossip_menu_option` for MenuId %u, OptionID %u has non-existing or incompatible BoxBroadcastTextId %u, ignoring.", gMenuItem.menu_id, gMenuItem.id, gMenuItem.BoxBroadcastTextID);
-                gMenuItem.BoxBroadcastTextID = 0;
+                sLog.outErrorDb("Table `gossip_menu_option` for MenuId %u, OptionID %u has non-existing or incompatible BoxBroadcastTextId %u, ignoring.", gMenuItem.menu_id, gMenuItem.id, gMenuItem.box_broadcast_text);
+                gMenuItem.box_broadcast_text = 0;
             }
         }
 
@@ -9887,13 +9894,13 @@ void ObjectMgr::LoadGossipMenuItems()
             gossipScriptSet.erase(gMenuItem.action_script_id);
         }
 
-        if (gMenuItem.conditionId)
+        if (gMenuItem.condition_id)
         {
-            ConditionEntry const* condition = sConditionStorage.LookupEntry<ConditionEntry>(gMenuItem.conditionId);
+            ConditionEntry const* condition = sConditionStorage.LookupEntry<ConditionEntry>(gMenuItem.condition_id);
             if (!condition)
             {
-                sLog.outErrorDb("Table gossip_menu_option for menu %u, id %u has condition_id %u that does not exist in `conditions`, ignoring", gMenuItem.menu_id, gMenuItem.id, gMenuItem.conditionId);
-                gMenuItem.conditionId = 0;
+                sLog.outErrorDb("Table gossip_menu_option for menu %u, id %u has condition_id %u that does not exist in `conditions`, ignoring", gMenuItem.menu_id, gMenuItem.id, gMenuItem.condition_id);
+                gMenuItem.condition_id = 0;
             }
         }
 
@@ -10070,30 +10077,6 @@ void ObjectMgr::AddGroup(Group* group)
 void ObjectMgr::RemoveGroup(Group* group)
 {
     m_GroupMap.erase(group->GetId());
-}
-
-// Functions for scripting access
-bool LoadMangosStrings(DatabaseType& db, char const* table, int32 start_value, int32 end_value, bool extra_content)
-{
-    // MAX_DB_SCRIPT_STRING_ID is max allowed negative value for scripts (scrpts can use only more deep negative values
-    // start/end reversed for negative values
-    if (end_value >= start_value)
-    {
-        sLog.outErrorDb("Table '%s' attempt loaded with reserved by mangos range (%d - %d), strings not loaded.", table, start_value, end_value + 1);
-        return false;
-    }
-
-    return sObjectMgr.LoadMangosStrings(db, table, start_value, end_value, extra_content);
-}
-
-CreatureInfo const* GetCreatureTemplateStore(uint32 entry)
-{
-    return sCreatureStorage.LookupEntry<CreatureInfo>(entry);
-}
-
-Quest const* GetQuestTemplateStore(uint32 entry)
-{
-    return sObjectMgr.GetQuestTemplate(entry);
 }
 
 bool FindCreatureData::operator()(CreatureDataPair const& dataPair)
@@ -11149,7 +11132,7 @@ void ObjectMgr::ApplyPremadeGearTemplateToPlayer(uint32 entry, Player* pPlayer) 
                         pPlayer->GetReputationMgr().SetReputation(pFaction, pPlayer->GetReputationMgr().GetRepPointsToRank(ReputationRank(pItem->RequiredReputationRank)));
 
             // Learn required profession
-            if (pItem->RequiredSkill && !pPlayer->HasSkill(pItem->RequiredSkill))
+            if (pItem->RequiredSkill && (!pPlayer->HasSkill(pItem->RequiredSkill) || (pPlayer->GetSkill(pItem->RequiredSkill, false, false) <  pItem->RequiredSkillRank)))
                 pPlayer->SetSkill(pItem->RequiredSkill, pItem->RequiredSkillRank, 300);
 
             // Learn required proficiency

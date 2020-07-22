@@ -216,7 +216,7 @@ struct zg_rez_add : public ScriptedAI
     }
     void Reset() override
     {
-        if (m_pInstance)
+        if (m_pInstance && m_creature->IsAlive())
             m_pInstance->SetData(m_uiInstMobType, NOT_STARTED);
     }
 
@@ -325,6 +325,9 @@ struct boss_thekalAI : public zg_rez_add
                 m_pInstance->SetData(TYPE_ZATH, DONE);
                 m_pInstance->SetData(TYPE_THEKAL, DONE);
             }
+
+            // Remove a Hakkar Power stack.
+            m_creature->CastSpell(m_creature, SPELL_HAKKAR_POWER_DOWN, true);
 
             ScriptedAI::JustDied(Killer);
         }

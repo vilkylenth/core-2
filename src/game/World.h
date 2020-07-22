@@ -583,6 +583,7 @@ enum eConfigBoolValues
     CONFIG_BOOL_AC_WARDEN_OSX_ENABLED,
     CONFIG_BOOL_AC_WARDEN_PLAYERS_ONLY,
     CONFIG_BOOL_VISIBILITY_FORCE_ACTIVE_OBJECTS,
+    CONFIG_BOOL_PLAYER_BOT_SHOW_IN_WHO_LIST,
     CONFIG_BOOL_VALUE_COUNT
 };
 
@@ -845,7 +846,6 @@ class World
         static float GetRelocationLowerLimitSq()            { return m_relocation_lower_limit_sq; }
         static uint32 GetRelocationAINotifyDelay()          { return m_relocation_ai_notify_delay; }
 
-        static uint32 GetCreatureSummonCountLimit()         { return m_creatureSummonCountLimit; }
         std::string const& GetWardenModuleDirectory() const { return m_wardenModuleDirectory; }
 
         void ProcessCliCommands();
@@ -984,8 +984,6 @@ class World
 
         static float  m_relocation_lower_limit_sq;
         static uint32 m_relocation_ai_notify_delay;
-
-        static uint32 m_creatureSummonCountLimit;
 
         // CLI command holder to be thread safe
         ACE_Based::LockedQueue<CliCommandHolder*,ACE_Thread_Mutex> cliCmdQueue;
